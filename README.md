@@ -157,4 +157,52 @@ This step should solve the `Pending` problem with `istio-ingressgateway`.
 
 You should now check that all Istio's `Workloads`, `Load Balancing` and `Service Discovery` parts are green in Rancher Dashboard.
 
-Only now, you can deploy a test application and test the power of Istio.
+Once last thing to add, so Istio sidecar container is injected automatically in your pods, run the following kubectl command, to add a `istio-injected` label to your default namespace:
+```
+> kubectl label namespace default istio-injection=enabled
+namespace "default" labeled
+> kubectl get namespace -L istio-injection
+NAME            STATUS    AGE       ISTIO-INJECTION
+cattle-system   Active    1h
+default         Active    1h        enabled
+istio-system    Active    37m
+kube-public     Active    1h
+kube-system     Active    1h
+>
+```
+
+This label, will make sure that Istio-Sidecar-Injector will automatically inject Envoy containers into your application pods
+
+Only now, you can deploy a test application and test the power of Istio. To do that, let's deploy the [Bookinfo sample application](https://istio.io/docs/guides/bookinfo/). The interesting part of this application is that it has 3 versions of the reviews app, running at the same time. Here's where we can see some of Istio's features.
+Go to the `rancher-demo` Default project workloads and to deploy the Bookinfo app:
+* click on **Import Yaml**;
+* download the following [bookinfo.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/bookinfo.yaml) to your local computer;
+* upload it to Rancher by using the **Read from file** option, after you enter the Import Yaml menu;
+* for the `Import Mode` select `Cluster: Direct import of any resources into this cluster`;
+* click on **Import**
+
+This should add 6 more workloads to your `rancher-demo` Default project. Just like in the screenshot below:
+
+![Rancher Bookinfo Workloads](screenshots/rancher-bookinfo-workloads01.png)
+
+Now to expose the Bookinfo app via Istio, you need to apply this [bookinfo-gateway.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/bookinfo-gateway.yaml) the same way as the bookinfo.yaml.
+At this moment, you can access the bookinfo app with your browser. Get the external IP address of the `istio-ingressgateway` Load Balancer. There are several ways to find this IP address. From Rancher, you can go to Load Balancing, and from the right hand side menu select `View in API`, just like in the screenshot below:
+
+![View Load Balancer in API](screenshots/rancher-lb-view-api01.png)
+
+It should open in a new browser tab, search there for `publicEndpoints -> addresses` and you should see the public IP address.
+Another way is via kubectl:
+```
+> export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+> echo $INGRESS_HOST
+35.202.242.153
+```
+
+Point your browser to `http://$INGRESS_HOST/productpage` and you should see the Bookinfo app. If you refresh your page multiple times, you should see 3 different versions for the `Book Reviews` part:
+- first one with no stars;
+- second one with black stars;
+- third one with red stars.
+
+Using istio, you can limit your app to route only to the first version of the app. To do that, Import the [route-rule-all-v1.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/route-rule-all-v1.yaml) into Rancher, wait for a couple of seconds, and then refresh the page multiple times. You should no longer see any stars on the reviews.
+
+Another example is to route traffic to only a set of users. If you import [route-rule-reviews-test-v2.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/route-rule-reviews-test-v2.yaml) to Rancher, login to the Bookinfo app with username jason (no password needed), you should see only version 2 of the reviews (the one with the black stars).
