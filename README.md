@@ -6,6 +6,15 @@ Service mesh is a new technology stack aimed at solving the connectivity problem
 
 Istio, at the moment works best with Kubernetes, but they are working to bring support for other platforms too. So to deploy Istio and demonstrate some of it's capabilities, there's a need of a kubernetes cluster. To do that is pretty easy using Rancher 2.0.
 
+#### Prerequisites
+To perform this demo, you will need the followings:
+- a Google Cloud Platform account, the free tier provided is more than enough;
+- one ubuntu 16.04 instance (this is where Rancher instance will be running)
+- a kubernetes cluster, deployed to Google Cloud Platform, using Google Kubernetes Engine, this demo uses version `1.10.5-gke.2`, latest available at the time of writing;
+- istio version `0.8.0`, the latest available at the time of this writing.
+
+Normally the steps provided should be valid with newer versions too.
+
 #### Starting a Rancher 2.0 instance
 
 For the beginning, start a Rancher 2.0 instance. There's a very intuitive getting started guide for this purpose [here](https://rancher.com/quick-start/). Just to be sure you'll get the information, the steps will be outlined below too.
