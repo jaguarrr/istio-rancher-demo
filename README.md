@@ -84,14 +84,14 @@ Now you're ready to start your cluster. Go to Rancher dashboard and click on **A
  * import or copy/paste the service key details from `key.json` file (generated above) into `Service Account` field;
 
 Proceed with **Configure Nodes** option and select the followings:
- * for `Kubernetes Version` it should be safe to select the latest available version, this test was done on `1.10.5-gke.2` version;
+ * for `Kubernetes Version` it should be safe to select the latest available version, this test was done on `1.10.7-gke.6` version;
  * select the zone that is closer to you;
  * for `Machine Type` it needs to be at least n1-standard-1;
  * for Istio Demo, the `Node Count` should be at least 4;
 
 It would look like the image below:
 
-![Rancher add cluster](screenshots/rancher-add-cluster01.png)
+![Rancher add cluster](screenshots/rancher-add-cluster.png)
 
 Click with confidence on ***Create***
 
@@ -133,7 +133,7 @@ At this stage, you should be able to deploy Istio using Rancher's Catalog. To do
 
 All of the above should look like in the screenshot below:
 
-![Deploy Istio from Rancher Catalog](screenshots/rancher-deploy-istio-from-catalog01.png)
+![Deploy Istio from Rancher Catalog](screenshots/rancher-deploy-istio-from-catalog.png)
 
 Everything looks good, click on **Launch**
 
