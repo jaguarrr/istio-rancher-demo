@@ -1,6 +1,6 @@
 # **Deploying Istio using Rancher 2.0**
 
-Service mesh is a new technology stack aimed at solving the connectivity problem between cloud native applications. If you want to build a cloud native application, you need a service mesh. One of the big players in the service mesh world is Istio. Istio is best described in their own [about page](https://istio.io/about/intro/). It's a very promising service mesh solution, based on [Envoy Proxy](https://www.envoyproxy.io/), having multiple tech giants contributing to it.
+Service mesh is a new technology stack aimed at solving the connectivity problem between cloud native applications. If you want to build a cloud native application, you need a service mesh. One of the big players in the service mesh world is Istio. Istio is best described in their own [about page](https://istio.io/docs/concepts/what-is-istio/). It's a very promising service mesh solution, based on [Envoy Proxy](https://www.envoyproxy.io/), having multiple tech giants contributing to it.
 
 ### Below is an overview of how you can deploy Istio using [Rancher 2.0](https://rancher.com/docs/rancher/v2.x/en/)
 
@@ -9,9 +9,10 @@ Istio, at the moment works best with Kubernetes, but they are working to bring s
 #### Prerequisites
 To perform this demo, you will need the followings:
 - a Google Cloud Platform account, the free tier provided is more than enough;
-- one ubuntu 16.04 instance (this is where Rancher instance will be running)
-- a kubernetes cluster, deployed to Google Cloud Platform, using Google Kubernetes Engine, this demo uses version `1.10.5-gke.2`, latest available at the time of writing;
-- istio version `0.8.0`, the latest available at the time of this writing.
+- one ubuntu 18.04 instance (this is where Rancher instance will be running)
+- a kubernetes cluster, deployed to Google Cloud Platform, using Google Kubernetes Engine, this demo uses version `1.10.7-gke.6`, latest available at the time of writing;
+- Rancher `v2.1.0`;
+- istio version `1.0.2`, the latest available at the time of this writing.
 
 Normally the steps provided should be valid with newer versions too.
 
@@ -22,21 +23,20 @@ For the beginning, start a Rancher 2.0 instance. There's a very intuitive gettin
 This example will use Google Cloud Platform, so let's start and Ubuntu instance there and allow HTTP and HTTPs traffic to it, either via [Console or CLI](https://cloud.google.com/compute/docs/instances/create-start-instance). Here's an example command to achieve the above:
 ```
 gcloud compute --project=rancher-20 instances create rancher-20 \
---zone=europe-west2-a --machine-type=n1-standard-1 \
---tags=http-server,https-server --image=ubuntu-1604-xenial-v20180627 \
---image-project=ubuntu-os-cloud
-
-gcloud compute --project=rancher-20 firewall-rules create default-allow-http \
---direction=INGRESS --priority=1000 --network=default --action=ALLOW \
---rules=tcp:80 --source-ranges=0.0.0.0/0 --target-tags=http-server
-
-gcloud compute --project=rancher-20 firewall-rules create default-allow-https \
---direction=INGRESS --priority=1000 --network=default --action=ALLOW \
---rules=tcp:443 --source-ranges=0.0.0.0/0 --target-tags=https-server
-```
+ --zone=europe-west2-c \
+ --machine-type=g1-small \
+ --tags=http-server,https-server \
+ --image=ubuntu-1804-bionic-v20180911 \
+ --image-project=ubuntu-os-cloud
+ ```
 
 Make sure you have at least **1 vCPU** and about **4GB** of RAM available for the rancher instance.
-Next step is to ssh into the instance and [install docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Once docker is installed, start Rancher and verify it's running:
+Next step is to ssh into the instance:
+```
+gcloud compute ssh --project "rancher-20" --zone "europe-west2-c" "rancher-20"
+```
+
+and [install docker](https://docs.docker.com/install/linux/docker-ce/ubuntu/). Once docker is installed, start Rancher and verify it's running:
 ```
 ubuntu@rancher-20:~$ sudo docker run -d --restart=unless-stopped -p 80:80 -p 443:443 rancher/rancher
 Unable to find image 'rancher/rancher:latest' locally
@@ -70,7 +70,7 @@ You should be redirected to a HTTPS page of Rancher and you should see a warning
 
 For that you'll need a Google Cloud Service Account with the following Roles attached to it `Compute Viewer`, `Kubernetes Engine Admin`, `Service Account User`, `Project Viewer`. Afterwards you need to generate service account keys, as described [here](https://cloud.google.com/iam/docs/creating-managing-service-account-keys)
 
-Now get your service account keys (it's safe to use the default Compute Engine service account), you will need them to start a kubernetes cluster using Rancher 2.0:
+Now get your service account keys (it's safe to use the default Compute Engine service account, you can get it from Google Cloud Console), you will need them to start a kubernetes cluster using Rancher 2.0:
 ```
 gcloud iam service-accounts keys create ./key.json \
     --iam-account <SA-NAME>@developer.gserviceaccount.com
@@ -123,7 +123,7 @@ Hit **Create**
 
 At this stage, you should be able to deploy Istio using Rancher's Catalog. To do that, go to the Default Project of `rancher-demo`'s cluster and select `Catalog Apps` there. Once you click on **Launch**, you will be presented with a number of default available applications. As this demo is about Istio, select from All Catalogs, the `istio-github` catalog, that you've just created. This will present you with 2 options `istio` and `istio-remote`. Select `View Details` for **istio** one. You'll be presented with the options to deploy Istio. Select the followings:
 * let's set the name to `istio-demo`;
-* leave the template version to *0.8.0*;
+* leave the template version to *1.1.0*;
 * the default namespace used for istio is `istio-system`, thus set the namespace to `istio-system`;
 * by default, Istio doesn't encrypt traffic between it's components. That's a very nice feature to have, let's add it. On the same topic, Istio's helm chart doesn't add by default Grafana, that's very useful to have, let's add this one too. This is done by setting to true the `global.controlPlaneSecurityEnabled` and `grafana.enabled` variables. To do this:
   - click **Add Answer**;
@@ -137,14 +137,7 @@ All of the above should look like in the screenshot below:
 
 Everything looks good, click on **Launch**
 
-Now if you look at the `Workloads` tab, you should see there all the components of Istio spinning up in your Cluster. Make sure all of the workloads are green. Also, check the `Load Balancing` tab, you should have `istio-ingress` and `istio-ingressgateway` there, both in `Active` state.
-
-In case you have `istio-ingressgateway` in `Pending` state, you need to apply `istio-ingressgateway` service once again. To do that:
-* click on **Import Yaml**;
-* for Import Mode, select `Cluster: Direct import of any resources into this cluster`;
-* copy/paste [istio-demo-ingressgateway.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/istio-demo-ingressgateway.yaml) Service into the Import Yaml editor and hit **Import**:
-
-This step should solve the `Pending` problem with `istio-ingressgateway`.
+Now if you look at the `Workloads` tab, you should see there all the components of Istio spinning up in your Cluster. Make sure all of the workloads are green. Also, check the `Load Balancing` tab, you should have `istio-ingressgateway` there, in `Active` state.
 
 You should now check that all Istio's `Workloads`, `Load Balancing` and `Service Discovery` parts are green in Rancher Dashboard.
 
@@ -166,7 +159,7 @@ This label, will make sure that Istio-Sidecar-Injector will automatically inject
 
 #### Deploying Bookinfo sample app
 
-Only now, you can deploy a test application and test the power of Istio. To do that, let's deploy the [Bookinfo sample application](https://istio.io/docs/guides/bookinfo/). The interesting part of this application is that it has 3 versions of the reviews app, running at the same time. Here's where we can see some of Istio's features.
+Only now, you can deploy a test application and test the power of Istio. To do that, let's deploy the [Bookinfo sample application](https://istio.io/docs/examples/bookinfo/). The interesting part of this application is that it has 3 versions of the reviews app, running at the same time. Here's where we can see some of Istio's features.
 Go to the `rancher-demo` Default project workloads to deploy the Bookinfo app:
 * click on **Import Yaml**;
 * download the following [bookinfo.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/bookinfo.yaml) to your local computer;
@@ -178,12 +171,12 @@ This should add 6 more workloads to your `rancher-demo` Default project. Just li
 
 ![Rancher Bookinfo Workloads](screenshots/rancher-bookinfo-workloads01.png)
 
-Now to expose the Bookinfo app via Istio, you need to apply this [bookinfo-gateway.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/bookinfo-gateway.yaml) the same way as the `bookinfo.yaml`.
-At this moment, you can access the bookinfo app with your browser. Get the external IP address of the `istio-ingressgateway` Load Balancer. There are several ways to find this IP address. From Rancher, you can go to Load Balancing, and from the right hand side menu select `View in API`, just like in the screenshot below:
+Now to expose the Bookinfo app via Istio, you need to apply this [bookinfo-gateway.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/bookinfo-gateway.yaml) the same way as the `bookinfo.yaml` via pe `Import YAML` option.
 
-![View Load Balancer in API](screenshots/rancher-lb-view-api01.png)
+At this moment, you can access the bookinfo app with your browser. For this you need the IP address of `istio-ingressgateway`. You can get that simply from workload tab, under `istio-ingressgateway`, you have the `80/tcp` link, if you click on that it will open the public IP address in a new tab, you need to append to that `/productpage` to get to the Bookinfo app:
 
-It should open in a new browser tab, search there for `publicEndpoints -> addresses` and you should see the public IP address.
+![Istio IngressGateway Public IP](screenshots/istio-public-ip.png)
+
 Another way is via kubectl:
 ```
 > export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -195,9 +188,12 @@ Point your browser to `http://${INGRESS_HOST}/productpage` and you should see th
 - second one with black stars;
 - third one with red stars.
 
-Using istio, you can limit your app to route only to the first version of the app. To do that, Import the [route-rule-all-v1.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/route-rule-all-v1.yaml) into Rancher, wait for a couple of seconds, and then refresh the page multiple times. You should no longer see any stars on the reviews.
+Before you can use Istio to control the Bookinfo version routing, you need to define the available versions, called subsets, in destination rules. Import [destination-rule-all.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/destination-rule-all.yaml) into Rancher for this purpose
 
-Another example is to route traffic to only a set of users. If you import [route-rule-reviews-test-v2.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/route-rule-reviews-test-v2.yaml) to Rancher, login to the Bookinfo app with username jason (no password needed), you should see only version 2 of the reviews (the one with the black stars). Logging out, will show you again only version 1 of the reviews app.
+
+Now, using istio, you can limit your app to route only to the first version of the app. To do that, Import the [virtual-service-all-v1.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/virtual-service-all-v1.yaml) into Rancher, wait for a couple of seconds, and then refresh the page multiple times. You should no longer see any stars on the reviews.
+
+Another example is to route traffic to only a set of users. If you import [virtual-service-reviews-test-v2.yaml](https://raw.githubusercontent.com/jaguarrr/istio-rancher-demo/master/bookinfo/virtual-service-reviews-test-v2.yaml) to Rancher, login to the Bookinfo app with username `jason` (no password needed), you should see only version 2 of the reviews (the one with the black stars). Logging out, will show you again only version 1 of the reviews app.
 
 The power provided by Istio can already be seen. Of course, there are many more possibilities with Istio. With this setup created, you can play around with the [tasks provided in Istio's documentation](https://istio.io/docs/tasks/)
 
@@ -207,18 +203,16 @@ Now it's time to dive into the even more useful features of Istio - the metrics 
 
 Let's start with Grafana. The variable `grafana.enabled`, that was set to `true`, when we deployed Istio, created a grafana instance, configured to collect Istio's metrics and display them in several Dashboards. By default Grafana's service isn't exposed publicly, thus to view the metrics, you first need to expose Grafana's service to a [public IP address](https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/). There's also the option to expose the service using [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport), but this will require you to open that NodePort on all of the nodes from Google Cloud Platform firewall, and that's one more task to deal with, thus it's simpler to just expose it via a public IP address.
 
-To do this, go to the Workloads under `ranchers-demo` Default project and select the `Service Discovery` tab. After all the work already done on the cluster, there should be about 5 services in the `default` namespace and 12 services in the `istio-system` namespace, all in `Active` state. Select the `grafana` service and from the right hand side menu, select `View/Edit YAML`, just like in the image below:
+To do this, go to the Workloads under `ranchers-demo` Default project and select the `Service Discovery` tab. After all the work already done on the cluster, there should be about 5 services in the `default` namespace and about 10 services in the `istio-system` namespace, all in `Active` state. Select the `grafana` service and from the right hand side menu, select `View/Edit YAML`, just like in the image below:
 
 ![Rancher change grafana service](screenshots/rancher-change-grafana-service01.png)
 
-Find the line that says `type: ClusterIP` and change it to `type: LoadBalancer` and confidently click `Save`. Now it should provision a load balancer in Google Cloud Platform and expose Grafana there, on it's default port `3000`. To get the public IP address of Grafana, repeat the process used to find the IP address for bookinfo example, meaning either view grafana service in API, where you can find the IP address, or get it via kubectl:
+Find the line that says `type: ClusterIP` and change it to `type: LoadBalancer` and confidently click `Save`. Now it should provision a load balancer in Google Cloud Platform and expose Grafana there, on it's default port `3000`. To get the public IP address of Grafana, go to the `Workloads` tab and you should see a `3000/tcp` link under Grafana, click on that and a new tab with Grafana should open:
 
-```
-export GRAFANA_HOST=$(kubectl -n istio-system get service grafana -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-echo $GRAFANA_HOST
-```
+![Grafana public IP](screenshots/grafana-public-ip.png)
 
-Point your browser to `http://${GRAFANA_HOST}:3000/`, select one of the Dashboards, for example `Istio Service Dashboard`. With previously applied configurations, we limited traffic to show only version 1 of reviews app. To see that on the graphs, select `reviews.default.svc.cluster.local` form the `Service` dropdown. Now generate some traffic from Rancher's kubectl, using the following commands:
+
+Select one of the Dashboards, for example `Istio Service Dashboard`. With previously applied configurations, we limited traffic to show only version 1 of reviews app. To see that on the graphs, select `reviews.default.svc.cluster.local` form the `Service` dropdown. Now generate some traffic from Rancher's `kubectl`, using the following commands:
 
 ```
 export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -229,14 +223,7 @@ Wait for about 5 minutes, to generate traffic for the Grafana to show on the Das
 
 ![Grafana Istio Service Dashboard](screenshots/grafana-istio-service-dashboard01.png)
 
-If you scroll a little bit on the Dashboard, under `SERVICE WORKLOADS` you can clearly see on `Incoming Requests by Destination And Response Code` graph, that requests for the Reviews app end up only on `v1` endpoint. If you generate some requests to version 2 of the app, with the following command (remember that user jason has access to `v2` of the reviews app):
-
-```
-export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-for i in {1..1000}; do curl -o /dev/null -s -w "%{http_code}\n" --cookie "user=jason" http://${INGRESS_HOST}/productpage; sleep 0.2; done
-```
-
- you should see requests appearing for the v2 app too, just like in the below screenshot:
+If you scroll a little bit on the Dashboard, under `SERVICE WORKLOADS` you can clearly see on `Incoming Requests by Destination And Response Code` graph, that requests for the Reviews app end up only on `v1` endpoint. If you generate some requests to version 2 of the app, while being logged into the app with user `jason` (remember that user jason has access to `v2` of the reviews app), you should see requests appearing for the v2 app too, just like in the below screenshot:
 
 ![Grafana Istio Services Graph for v1 and v2](screenshots/istio-graphs-v1-v2.png)
 
